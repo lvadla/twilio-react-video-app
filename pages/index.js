@@ -1,8 +1,48 @@
+import { useState } from 'react';
 import Head from 'next/head'
+import JoinForm from '../components/JoinForm'
+import VideoRoom from '../components/VideoRoom'
 
 export default function Home() {
+  const [userName, setUserName] = useState('');
+  const [roomName, setRoomName] = useState('');
+  const [token, setToken] = useState('');
+
+  const resetStore = () => {
+    setToken('');
+    setUserName('');
+    setRoomName('');
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const init = {
+      body: JSON.stringify({
+        identity: userName,
+        room: roomName
+      }),
+      headers: {
+        "Content-Type": "application/json"
+      },
+      method: "POST",
+      referrerPolicy: "no-referrer"
+    };
+
+    try {
+      const response = await fetch(
+        "https://mahogany-snail-6871.twil.io/token-creation",
+        init
+      );
+
+      const result = await response.json();
+      setToken(result.token);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   return (
-    <div className="container">
+    <div className="home">
       <Head>
         <title>Create Next App</title>
         <link rel="icon" href="/favicon.ico" />
@@ -10,47 +50,34 @@ export default function Home() {
 
       <main>
         <h1 className="title">
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
+          No nonsense <a href="https://www.twilio.com/video">video chat</a>
         </h1>
 
         <p className="description">
           Get started by editing <code>pages/index.js</code>
         </p>
 
-        <div className="grid">
-          <a href="https://nextjs.org/docs" className="card">
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
+        {!!token
+          ? <VideoRoom
+            token={token}
+            resetStore={resetStore}
+            roomName={roomName}
+            userName={userName}
+          />
+          : <JoinForm
+            handleSubmit={handleSubmit}
+            userName={userName}
+            setUserName={setUserName}
+            roomName={roomName}
+            setRoomName={setRoomName}
+          />
+        }
 
-          <a href="https://nextjs.org/learn" className="card">
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/zeit/next.js/tree/master/examples"
-            className="card"
-          >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className="card"
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
       </main>
 
       <footer>
         <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
+          href="https://vercel.com"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -60,7 +87,7 @@ export default function Home() {
       </footer>
 
       <style jsx>{`
-        .container {
+        .home {
           min-height: 100vh;
           padding: 0 0.5rem;
           display: flex;
@@ -103,7 +130,7 @@ export default function Home() {
         }
 
         .title a {
-          color: #0070f3;
+          color: var(--secondary-color);
           text-decoration: none;
         }
 
@@ -117,6 +144,7 @@ export default function Home() {
           margin: 0;
           line-height: 1.15;
           font-size: 4rem;
+          text-transform: uppercase;
         }
 
         .title,
@@ -163,8 +191,8 @@ export default function Home() {
         .card:hover,
         .card:focus,
         .card:active {
-          color: #0070f3;
-          border-color: #0070f3;
+          color: var(--secondary-color);
+          border-color: var(--secondary-color);
         }
 
         .card h3 {
@@ -191,6 +219,15 @@ export default function Home() {
       `}</style>
 
       <style jsx global>{`
+      :root {
+        --main-bg-color: #FFFFFF;
+        --main-color: #1f1235;
+        --sub-h-color: #1b1425;
+        --primary-color: #ff6e6c;
+        --secondary-color: #67568c;
+        --tertiary-color: #fbdd74;
+      }
+
         html,
         body {
           padding: 0;
@@ -202,6 +239,16 @@ export default function Home() {
 
         * {
           box-sizing: border-box;
+        }
+
+        .container {
+          max-width: 300px;
+          padding: 2rem;
+          background-color: #fff;
+          border: 0;
+          border-radius: 0.375rem;
+          box-shadow: 0 15px 45px -5px rgba(10, 16, 34, 0.15);
+          margin: 0 auto 2rem;
         }
       `}</style>
     </div>
