@@ -1,100 +1,90 @@
-import React, { useEffect, useRef, useState } from 'react';
-import TwilioVideo from "twilio-video";
+import React, { useEffect, useState } from 'react';
+import { useToasts } from 'react-toast-notifications';
+import TwilioVideo from 'twilio-video';
+import Video from './Video';
 
-const VideoRoom = ({ roomName, token, userName, resetStore }) => {
+const VideoRoom = ({ roomName, token, removeToken }) => {
     const [room, setRoom] = useState(null);
     const [participants, setParticipants] = useState([]);
-    const localVidRef = useRef()
-    const remoteVidRef = useRef()
+    const { addToast } = useToasts();
+
+    useEffect(function connectWithToken() {
+        const participantConnected = participant => {
+            console.log(`A remote participant joined: ${participant.identity}`);
+            addToast(
+                `A remote participant joined: ${participant.identity}`,
+                { appearance: 'success' }
+            );
+            setParticipants(participants => [...participants, participant]);
+        };
+        const participantDisconnected = participant => {
+            console.log(`A remote participant has left: ${participant.identity}`);
+            addToast(
+                `A remote participant has left: ${participant.identity}`,
+                { appearance: 'warning' }
+            );
+            setParticipants(participants =>
+                participants.filter(p => p !== participant)
+            );
+        };
+        token && TwilioVideo.connect(token, { video: true, audio: true, name: roomName }).then(
+            connectedRoom => {
+                console.log(`Connected to Room "${connectedRoom.name}"`);
+                addToast(
+                    `Connected to Room "${connectedRoom.name}"`,
+                    { appearance: 'success' }
+                );
+
+                connectedRoom.on('participantConnected', participantConnected);
+                connectedRoom.on('participantDisconnected', participantDisconnected);
+                connectedRoom.participants.forEach(participantConnected);
+
+                // update local state from room
+                setRoom(connectedRoom);
+            }
+        ).catch(error => {
+            console.error(
+                `Unable to connect to Room \n
+                [${error.message}] \n
+                Try checking that your webcam is plugged in or that you have given your browser the correct permissions`
+            );
+            addToast(
+                `Unable to connect to Room [${error.message}]`,
+                { appearance: 'error' }
+            );
+        });
+
+        // if the local user is still connected to to the room, then
+        // we should stop all tracks, disconnect, and wipe local state.
+        // wiping local state will unmount the child Video components
+        return () => {
+            leaveChat();
+        };
+    }, [roomName, token])
 
     function leaveChat() {
-        tearDown(room);
-        resetStore();
-    }
-
-    function tearDown(room) {
         if (room) {
+            console.log(`You have left the room "${roomName}"`);
+            addToast(
+                `You have left the room "${roomName}"`,
+                { appearance: 'warning' }
+            );
+            if (room.localParticipant.state === 'connected') {
+                room.localParticipant.tracks.forEach(function (trackPublication) {
+                    trackPublication.track.stop();
+                });
+            }
             room.removeAllListeners();
             room.disconnect();
             setRoom(null);
+            setParticipants([]);
         }
+        // if the user elects to leave the chat,
+        // we should wipe their token. this brings
+        // them back to the "Join Video Chat" form where
+        // they enter new room credentials
+        removeToken();
     }
-
-    function addParticipant(participant) {
-        console.log("new participant!")
-        console.log(participant)
-
-        // append the attached tracks to the ref
-        participant.tracks.forEach(publication => {
-            if (publication.isSubscribed) {
-                const track = publication.track
-
-                remoteVidRef.current.appendChild(track.attach())
-                console.log("attached to remote video")
-            }
-        })
-
-        // append additional tracks for this participant
-        // as they are subscribed to
-        participant.on("trackSubscribed", track => {
-            console.log("track subscribed")
-            remoteVidRef.current.appendChild(track.attach())
-        })
-
-        // add the participant to local state
-        setParticipants(participants => [...participants, participant]);
-    }
-
-    function removeParticipant(participant) {
-        console.log("participant has left!")
-        console.log(participant)
-
-        // remove the detached tracks from the ref
-        participant.tracks.forEach(publication => {
-            if (publication.isSubscribed) {
-                const track = publication.track
-
-                remoteVidRef.current.appendChild(track.detach())
-                console.log("detached from remote video")
-            }
-        })
-
-        // remove tracks for this participant
-        // as they are unsubscribed
-        participant.on("trackUnsubscribed", track => {
-            console.log("track unsubscribed")
-            // remoteVidRef.current.appendChild(track.attach())
-        })
-
-        // remove the participant from local state
-        setParticipants(participants => participants.filter(n => n !== participant));
-    }
-
-    useEffect(function connectWithToken() {
-        TwilioVideo.connect(token, { video: true, audio: true, name: roomName }).then(
-            connectedRoom => {
-                // Keep a ref to the room for cleaning up
-                setRoom(connectedRoom);
-                // Attach the local video
-                TwilioVideo.createLocalVideoTrack().then(track => {
-                    localVidRef.current.appendChild(track.attach())
-                })
-
-                // Attach the remote videos of all participants
-                // that were in the room before we joined
-                connectedRoom.participants.forEach(addParticipant)
-                // Attach the remote video for a participant
-                // as they join the room
-                connectedRoom.on("participantConnected", addParticipant)
-                // Detach the remote video for a participant
-                // as they leave the room
-                connectedRoom.on("participantDisconnected", removeParticipant)
-            }
-        )
-        return () => {
-            leaveChat()
-        }
-    }, [token])
 
     return (
         <>
@@ -106,18 +96,27 @@ const VideoRoom = ({ roomName, token, userName, resetStore }) => {
             </h3>
             <br />
 
-            <div className="wrapper">
-                {!!userName && <p>{userName}</p>}
-                {!!room && <>
-                    <div ref={localVidRef} />
-                    <div ref={remoteVidRef} />
-                </>}
-                {!!participants && participants.map(participant =>
-                    <>
-                        <p>{participant.sid}</p>
-                    </>
-                )}
-            </div>
+            {!!room && <>
+                <div className="local">
+                    <Video
+                        key={room.localParticipant.sid}
+                        user={room.localParticipant}
+                    ></Video>
+                </div>
+                <div className="remote">
+                    {!!participants && !!participants.length && <>
+                        <h2>Other Participants:</h2>
+                        <div className="wrapper">
+                            {participants.map(participant =>
+                                <Video
+                                    key={participant.sid}
+                                    user={participant}
+                                ></Video>
+                            )}
+                        </div>
+                    </>}
+                </div>
+            </>}
 
             <button onClick={leaveChat}>Leave Video Chat</button>
 

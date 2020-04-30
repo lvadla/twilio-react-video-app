@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import Head from 'next/head'
+import { ToastProvider } from 'react-toast-notifications'
 import JoinForm from '../components/JoinForm'
 import VideoRoom from '../components/VideoRoom'
 
@@ -8,13 +9,21 @@ export default function Home() {
   const [roomName, setRoomName] = useState('');
   const [token, setToken] = useState('');
 
-  const resetStore = () => {
+  const removeToken = useCallback(() => {
     setToken('');
     setUserName('');
     setRoomName('');
-  }
+  }, []);
 
-  async function handleSubmit(e) {
+  const handleRoomNameChange = useCallback(function updateRoomName(e) {
+    setRoomName(e.target.value);
+  }, []);
+
+  const handleUserNameChange = useCallback(function updateUserName(e) {
+    setUserName(e.target.value);
+  }, []);
+
+  const handleSubmit = useCallback(async function fetchToken(e) {
     e.preventDefault();
     const init = {
       body: JSON.stringify({
@@ -39,54 +48,54 @@ export default function Home() {
     } catch (error) {
       console.error(error);
     }
-  }
+  }, [roomName, userName]);
 
   return (
-    <div className="home">
-      <Head>
-        <title>Create Next App</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+    <ToastProvider>
+      <div className="home">
+        <Head>
+          <title>Create Next App</title>
+          <link rel="icon" href="/favicon.ico" />
+        </Head>
 
-      <main>
-        <h1 className="title">
-          No nonsense <a href="https://www.twilio.com/video">video chat</a>
-        </h1>
+        <main>
+          <h1 className="title">
+            No nonsense <a href="https://www.twilio.com/video">video chat</a>
+          </h1>
 
-        <p className="description">
-          Get started by editing <code>pages/index.js</code>
-        </p>
+          <p className="description">
+            Get started by editing <code>pages/index.js</code>
+          </p>
 
-        {!!token
-          ? <VideoRoom
-            token={token}
-            resetStore={resetStore}
-            roomName={roomName}
-            userName={userName}
-          />
-          : <JoinForm
-            handleSubmit={handleSubmit}
-            userName={userName}
-            setUserName={setUserName}
-            roomName={roomName}
-            setRoomName={setRoomName}
-          />
-        }
+          {!!token
+            ? <VideoRoom
+              token={token}
+              removeToken={removeToken}
+              roomName={roomName}
+            /> :
+            <JoinForm
+              handleSubmit={handleSubmit}
+              userName={userName}
+              handleUserNameChange={handleUserNameChange}
+              roomName={roomName}
+              handleRoomNameChange={handleRoomNameChange}
+            />
+          }
 
-      </main>
+        </main>
 
-      <footer>
-        <a
-          href="https://vercel.com"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className="logo" />
-        </a>
-      </footer>
+        <footer>
+          <a
+            href="https://vercel.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Powered by{' '}
+            <img src="/vercel.svg" alt="Vercel Logo" className="logo" />
+          </a>
+        </footer>
 
-      <style jsx>{`
+        <style jsx>{`
         .home {
           min-height: 100vh;
           padding: 0 0.5rem;
@@ -218,7 +227,7 @@ export default function Home() {
         }
       `}</style>
 
-      <style jsx global>{`
+        <style jsx global>{`
       :root {
         --main-bg-color: #FFFFFF;
         --main-color: #1f1235;
@@ -242,7 +251,6 @@ export default function Home() {
         }
 
         .container {
-          max-width: 300px;
           padding: 2rem;
           background-color: #fff;
           border: 0;
@@ -251,6 +259,7 @@ export default function Home() {
           margin: 0 auto 2rem;
         }
       `}</style>
-    </div>
+      </div>
+    </ToastProvider>
   )
 }

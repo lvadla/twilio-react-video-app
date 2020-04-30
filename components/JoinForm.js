@@ -1,4 +1,10 @@
-export default function JoinForm({ handleSubmit, setRoomName, setUserName, roomName, userName }) {
+export default function JoinForm({
+    handleSubmit,
+    handleRoomNameChange,
+    handleUserNameChange,
+    roomName,
+    userName
+}) {
     return (
         <div className="container">
             <form onSubmit={handleSubmit}>
@@ -10,7 +16,7 @@ export default function JoinForm({ handleSubmit, setRoomName, setUserName, roomN
                         type="text"
                         id="userName"
                         name="userName"
-                        onChange={e => setUserName(e.target.value)}
+                        onChange={handleUserNameChange}
                         value={userName}
                         required
                     />
@@ -24,7 +30,7 @@ export default function JoinForm({ handleSubmit, setRoomName, setUserName, roomN
                         type="text"
                         id="roomName"
                         name="roomName"
-                        onChange={e => setRoomName(e.target.value)}
+                        onChange={handleRoomNameChange}
                         value={roomName}
                         required
                     />

@@ -1,67 +1,78 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
 export default function Video({ user }) {
     const audioRef = useRef();
     const videoRef = useRef();
-    let audioTrack = null;
-    let videoTrack = null;
+    const [audioTracks, setAudioTracks] = useState([]);
+    const [videoTracks, setVideoTracks] = useState([]);
 
-    useEffect(() => {
-        async function setUpTracks() {
-            // first, we need to get our track publications from the user object
-            let audioPublication = Array.from(user.audioTracks.values())[0];
-            let videoPublication = Array.from(user.videoTracks.values())[0];
+    useEffect(function storeAVTracksForUser() {
 
-            if (!!audioPublication.track) {
-                audioTrack = audioPublication.track;
-                audioRef.current.appendChild(audioTrack.attach());
+        let initialAudioTracks = Array.from(user.audioTracks.values())
+            .map(publication => publication.track)
+            .filter(track => track !== null)
+        let initialVideoTracks = Array.from(user.videoTracks.values())
+            .map(publication => publication.track)
+            .filter(track => track !== null)
+        setAudioTracks(initialAudioTracks);
+        setVideoTracks(initialVideoTracks);
+
+        function trackSubscribed(track) {
+            if (track.kind === "video") {
+                setVideoTracks(tracks => [...tracks, track]);
             }
-            if (!!videoPublication.track) {
-                videoTrack = videoPublication.track;
-                videoRef.current.appendChild(videoTrack.attach());
+            if (track.kind === "audio") {
+                setAudioTracks(tracks => [...tracks, track]);
             }
-
-            user.on("trackSubscribed", trackSubscribed);
-            user.on("trackUnsubscribed", trackUnsubscribed);
         }
-        setUpTracks();
+
+        function trackUnsubscribed(track) {
+            if (track.kind === "video") {
+                setVideoTracks(tracks => tracks.filter(n => n !== track));
+            }
+            if (track.kind === "audio") {
+                setAudioTracks(tracks => tracks.filter(n => n !== track));
+            }
+        }
+
+        // add new tracks to local state as they are subscribed to
+        user.on("trackSubscribed", trackSubscribed);
+        user.on("trackUnsubscribed", trackUnsubscribed);
 
         return () => {
+            setAudioTracks([]);
+            setVideoTracks([]);
             user.removeAllListeners();
-            trackUnsubscribed(audioTrack);
-            trackUnsubscribed(videoTrack);
-            user = null;
         };
-    }, []);
+    }, [user]);
 
-    function trackSubscribed(track) {
-        if (track.kind === "video") {
-            videoTrack = track;
-            videoRef.current.appendChild(videoTrack.attach());
+    useEffect(function attachVideoToDOM() {
+        const videoTrack = videoTracks[0];
+        if (videoTrack) {
+            videoTrack.attach(videoRef.current);
+            return () => {
+                videoTrack.detach();
+            };
         }
-        if (track.kind === "audio") {
-            audioTrack = track;
-            audioRef.current.appendChild(audioTrack.attach());
-        }
-    }
+    }, [videoTracks]);
 
-    function trackUnsubscribed(track) {
-        if (track && track.kind === "video" && track === videoTrack) {
-            videoTrack.detach().forEach(n => n.remove());
-            videoTrack = null;
+    useEffect(function attachAudioToDOM() {
+        const audioTrack = audioTracks[0];
+        if (audioTrack) {
+            audioTrack.attach(audioRef.current);
+            return () => {
+                audioTrack.detach();
+            };
         }
-        if (track && track.kind === "audio" && track === audioTrack) {
-            audioTrack.detach().forEach(n => n.remove());
-            audioTrack = null;
-        }
-    }
+    }, [audioTracks]);
 
     return <>
-        (!!user && <div class="container" id={user.sid}>
+        {!!user && <div className="container">
             <h1>{user.identity}</h1>
             <audio ref={audioRef} />
             <video ref={videoRef} />
-        </div>)
-        <style jsx > {`
+        </div>}
+        <style jsx>{`
             video {
                 width: 100%;
             }
